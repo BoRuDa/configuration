@@ -4,6 +4,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFlagProvider(t *testing.T) {
@@ -23,7 +25,66 @@ func TestFlagProvider(t *testing.T) {
 		t.Fatal("cannot set value")
 	}
 
-	if !reflect.DeepEqual(testValue, testObj.Name) {
-		t.Fatalf("\nexpected result: [%s] \nbut got: [%s]", testValue, testObj.Name)
+	assert.Equal(t, testValue, testObj.Name)
+}
+
+func TestGetFlagData(t *testing.T) {
+	tests := map[string]struct {
+		input    interface{}
+		expected *flagData
+	}{
+		"key": {
+			input: struct {
+				Name string `flag:"name"`
+			}{},
+			expected: &flagData{
+				key: "name",
+			},
+		},
+		"key & default": {
+			input: struct {
+				Name string `flag:"name|defVal"`
+			}{},
+			expected: &flagData{
+				key:        "name",
+				defaultVal: "defVal",
+				usage:      "",
+			},
+		},
+		"key & usage": {
+			input: struct {
+				Name string `flag:"name||some usage"`
+			}{},
+			expected: &flagData{
+				key:   "name",
+				usage: "some usage",
+			},
+		},
+		"key & default & usage": {
+			input: struct {
+				Name string `flag:"name|defVal|some usage"`
+			}{},
+			expected: &flagData{
+				key:        "name",
+				defaultVal: "defVal",
+				usage:      "some usage",
+			},
+		},
+		"wrong format": {
+			input: struct {
+				Name string `flag:"||||"`
+			}{},
+			expected: nil,
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			field := reflect.TypeOf(test.input).Field(0)
+			gotFlagData := getFlagData(field)
+
+			assert.Equal(t, test.expected, gotFlagData)
+		})
 	}
 }

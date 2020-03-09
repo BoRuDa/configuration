@@ -1,19 +1,26 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/borudar/configuration)](https://goreportcard.com/report/github.com/borudar/configuration)
+[![codecov](https://codecov.io/gh/BoRuDar/configuration/branch/master/graph/badge.svg)](https://codecov.io/gh/BoRuDar/configuration)
+![Go](https://github.com/BoRuDar/configuration/workflows/Go/badge.svg)
+[![GoDoc](https://godoc.org/github.com/BoRuDar/configuration?status.png)](https://godoc.org/github.com/BoRuDar/configuration)
+
+
 # Configuration
 is a library for injecting values recursively into structs - a convinient way of setting up a configuration object.
-Currently supports next features:
-- setting *default* values for struct fields (`NewDefaultProvider()`)
-- setting values from *environment* variables (`NewEnvProvider()`)
-- setting values from command line *flags* (`NewFlagProvider(&cfg)`)
+Available features :
+- setting *default* values for struct fields - `NewDefaultProvider()`
+- setting values from *environment* variables - `NewEnvProvider()`
+- setting values from command line *flags* - `NewFlagProvider(&cfg)`
+- setting values from *files* (JSON or YAML) - `NewFileProvider("./testdata/input.yml")`
 
-Next fields' types are supported:
-- `string`, `*string`
-- `bool`, `*bool`
-- `int`, `int8`, `int16`, `int32`, `int64`
+Supported types:
+- `string`, `*string`, `[]string`
+- `bool`, `*bool`, `[]bool`
+- `int`, `int8`, `int16`, `int32`, `int64` + slices of these types
 - `*int`, `*int8`, `*int16`, `*int32`, `*int64`
-- `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- `uint`, `uint8`, `uint16`, `uint32`, `uint64` + slices of these types
 - `*uint`, `*uint8`, `*uint16`, `*uint32`, `*uint64`
-- `float32`, `float64`,
-- `*float32`, `*float64`,
+- `float32`, `float64` + slices of these types
+- `*float32`, `*float64`
 - embedded structs and pointers to structs
 
 # Quick start
@@ -67,7 +74,7 @@ If none of providers found value - "zero" value of a field remains.
 You can define a custom provider which should satisfy next interface:
 ```go
 type Provider interface {
-	Provide(field reflect.StructField, v reflect.Value) bool
+	Provide(field reflect.StructField, v reflect.Value, pathToField ...string) bool
 }
 ```
 
@@ -91,7 +98,6 @@ Looks for `env` tag and tries to find an ENV variable with the name from the tag
         // ...
     }
 ```
-If `env` tag is not found it will try to use `json` tag in upper case (`age` becomes `AGE` in this example).
 Name inside tag `env:"<name>"` must be unique for each field.
 
 
@@ -100,10 +106,22 @@ Looks for `flag` tag and tries to set value from the command line flag `-name`
 ```go
     struct {
         // ...
-        Name     string `json:"name"  flag:"name"`
+        Name     string `json:"name"  flag:"name|default_value|Description"`
         // ...
     }
 ```
-If `flag` tag is not found it will try to use value from `json` tag.
-Name inside tag `flag:"<name>"` must be unique for each field.
+Name inside tag `flag:"<name>"` must be unique for each field. `default_value` and `description` sections are optional and can be omitted.
 `NewFlagProvider(&cfg)` expects a pointer to the same object for initialization.
+
+*Note*: if program is executed with `-help` or `-h` flag you will see all available flags with description:
+```bash
+Flags: 
+	-flag_name		"Description (default: default_value)"
+``` 
+And program execution will be terminated.
+
+### File provider
+Doesn't require any specific tags. JSON and YAML formats of files are supported.
+```go
+    NewFileProvider("./testdata/input.yml")
+```

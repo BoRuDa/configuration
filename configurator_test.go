@@ -8,6 +8,11 @@ import (
 )
 
 func TestConfigurator(t *testing.T) {
+	defer func() {
+		gFailIfCannotSet = false
+		gLoggingEnabled = false
+	}()
+
 	// setting command line flag
 	os.Args = []string{"smth", "-name=flag_value"}
 
@@ -31,13 +36,17 @@ func TestConfigurator(t *testing.T) {
 		}
 
 		Obj struct {
-			IntPtr *int16 `json:"int_ptr"         default:"123"`
+			IntPtr   *int16   `json:"int_ptr"         default:"123"`
+			NameYML  int      `default:"24"`
+			StrSlice []string `default:"one;two"`
+			IntSlice []int64  `default:"3; 4"`
 		}
 	}{}
 
 	configurator, err := New(&cfg, []Provider{
 		NewFlagProvider(&cfg),
 		NewEnvProvider(),
+		NewFileProvider("./testdata/input.yml"),
 		NewDefaultProvider(),
 	}, true, true)
 	if err != nil {
@@ -58,4 +67,35 @@ func TestConfigurator(t *testing.T) {
 
 	assert.NotNil(t, cfg.Obj.IntPtr)
 	assert.Equal(t, int16(123), *cfg.Obj.IntPtr)
+	assert.Equal(t, int(42), cfg.Obj.NameYML)
+	assert.Equal(t, []string{"one", "two"}, cfg.Obj.StrSlice)
+	assert.Equal(t, []int64{3, 4}, cfg.Obj.IntSlice)
+}
+
+func TestConfigurator_Errors(t *testing.T) {
+	tests := map[string]struct {
+		input     interface{}
+		providers []Provider
+	}{
+		"empty providers": {
+			input:     &struct{}{},
+			providers: []Provider{},
+		},
+		"non-pointer": {
+			input: struct{}{},
+			providers: []Provider{
+				NewDefaultProvider(),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			_, err := New(test.input, test.providers, false, false)
+			if err == nil {
+				t.Fatal("expected error but got nil")
+			}
+		})
+	}
 }
